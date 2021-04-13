@@ -7,6 +7,12 @@ Following models are implemented
 - Word2vec skipgram
 - GloVe
 
+## Training result
+
+![Loss and Spearman Correlation score](./images/plot.png)
+
+![Embedding visualization](./images/embedding_space.png)
+
 ## References
 
 - [Efficient Estimation of Word Representations in Vector Space](https://arxiv.org/abs/1301.3781)

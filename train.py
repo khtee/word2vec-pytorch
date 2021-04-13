@@ -52,9 +52,11 @@ def train(dataset, loader, embed_dim, batch_size, max_epoch, window_size,
             batch_loss = []
             start_time = time.time()
 
+            # concat N sentences into matrix for vectorized training.
+            target, context, neg_sample = [], [], []
             for sentence in batch:
                 # split the words in a sentence
-                train_words = sentence.split(' ')
+                train_words = sentence.rstrip().split(' ')
 
                 # subsampling
                 train_words = [
@@ -70,8 +72,6 @@ def train(dataset, loader, embed_dim, batch_size, max_epoch, window_size,
                     dataset.word2idx.get(word, 0) for word in train_words
                 ]
 
-                target, context, neg_sample = [], [], []
-
                 # get target and context words
                 for i, target_word in enumerate(train_words_idx):
                     context_words = get_context(train_words_idx, i,
@@ -79,34 +79,25 @@ def train(dataset, loader, embed_dim, batch_size, max_epoch, window_size,
                     context.extend(context_words)
                     target.extend([target_word] * len(context_words))
 
-                # negative sampling
-                neg_sample = get_negatives(target, negatives, len(target), K=5)
-                # unigram sampling
-                # neg_sample = np.random.randint(low=0,
-                #                                high=dataset.num_vocab,
-                #                                size=(len(target),
-                #                                      neg_sample_size),
-                #                                dtype=int)
+            # negative sampling
+            neg_sample = get_negatives(target, negatives, len(target), K=5)
+            # unigram sampling
+            # neg_sample = np.random.randint(low=0,
+            #                                high=dataset.num_vocab,
+            #                                size=(len(target), neg_sample_size),
+            #                                dtype=int)
 
-                # convert to tensor
-                target_idx = torch.LongTensor(target).to(DEVICE)
-                context_idx = torch.LongTensor(context).to(DEVICE)
-                neg_idx = torch.LongTensor(np.vstack(neg_sample)).to(DEVICE)
+            # convert to tensor
+            target_idx = torch.LongTensor(target).to(DEVICE)
+            context_idx = torch.LongTensor(context).to(DEVICE)
+            neg_idx = torch.LongTensor(np.vstack(neg_sample)).to(DEVICE)
 
-                optimizer.zero_grad()
-                loss = model.forward(target_idx, context_idx,
-                                     neg_idx).to(DEVICE)
-                loss.backward()
-                optimizer.step()
-                batch_loss.append(loss.item())
+            optimizer.zero_grad()
+            loss = model.forward(target_idx, context_idx, neg_idx).to(DEVICE)
+            loss.backward()
+            optimizer.step()
 
-            # loss after each batch
-            new_loss = np.mean(batch_loss)
-            loss_history.append(new_loss)
-
-            if new_loss < worst_loss:
-                model.save_embedding(dataset.idx2word, LOSS_EMBED)
-                worst_loss = new_loss
+            loss_history.append(loss.item())
 
             # spearman after each batch
             if test_file:
@@ -125,7 +116,7 @@ def train(dataset, loader, embed_dim, batch_size, max_epoch, window_size,
             print(
                 "Epoch: {}/{} \t Batch: {} \t Loss: {}  \t Spearman: {}  \t Time_taken: {} seconds"
                 .format(epoch + 1, max_epoch, idx * batch_size,
-                        round(new_loss, 5), round(new_spearman, 5),
+                        round(loss.item(), 5), round(new_spearman, 5),
                         round(time_taken, 5)))
 
     save_pickle(LOSS_HISTORY_PICKLE, loss_history)
